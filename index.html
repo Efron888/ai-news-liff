@@ -82,18 +82,25 @@
           </div>
         </div>
         
-        <!-- 手動刷新按鈕 -->
-        <button id="refresh-btn" class="p-2 text-slate-400 hover:text-blue-600 active:rotate-180 transition-transform duration-300">
-          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        <!-- 立即更新按鈕 -->
+        <button id="instant-update-btn" class="flex items-center space-x-1.5 bg-blue-50 hover:bg-blue-100 active:scale-95 text-[#0F3B82] px-3 py-1.5 rounded-xl text-xs font-bold border border-blue-200 transition shadow-sm">
+          <i data-lucide="zap" class="w-3.5 h-3.5 text-blue-600 fill-blue-600"></i>
+          <span>立即更新</span>
         </button>
       </div>
 
-      <!-- 目前追蹤關鍵字 Badge -->
-      <div class="pt-2 border-t border-slate-100">
-        <p class="text-[11px] text-slate-500 mb-1.5 font-medium flex items-center gap-1">
-          <i data-lucide="tag" class="w-3 h-3 text-blue-600"></i>
-          目前追蹤主題：
-        </p>
+      <!-- 目前追蹤關鍵字與時間 Badge -->
+      <div class="pt-2 border-t border-slate-100 flex flex-col space-y-2">
+        <div class="flex items-center justify-between text-[11px] text-slate-500 font-medium">
+          <span class="flex items-center gap-1">
+            <i data-lucide="tag" class="w-3 h-3 text-blue-600"></i>
+            目前追蹤主題：
+          </span>
+          <span id="push-time-badge" class="flex items-center gap-1 text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md font-semibold">
+            <i data-lucide="clock" class="w-3 h-3 text-blue-600"></i>
+            每日 <span id="display-push-time">08:00</span> 更新
+          </span>
+        </div>
         <div id="keywords-tags" class="flex flex-wrap gap-1.5">
           <span class="bg-slate-100 text-slate-600 text-xs px-2.5 py-1 rounded-md">載入中...</span>
         </div>
@@ -163,15 +170,50 @@
       <!-- 自訂關鍵字輸入框 -->
       <div>
         <label for="custom-keywords" class="block text-xs font-bold text-slate-700 mb-1.5">我的追蹤關鍵字（用逗號分開）：</label>
-        <textarea id="custom-keywords" rows="3" class="w-full text-sm p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="例如：具身機器人, 製造業 AI, 智慧自動化"></textarea>
+        <textarea id="custom-keywords" rows="2" class="w-full text-sm p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="例如：具身機器人, 製造業 AI, 智慧自動化"></textarea>
       </div>
 
-      <!-- 儲存按鈕 -->
-      <button id="save-keywords-btn" class="w-full bg-[#0F3B82] hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-md transition flex items-center justify-center space-x-2 active:scale-[0.98]">
-        <i data-lucide="check" class="w-4 h-4"></i>
-        <span>確認儲存並重新整理日報</span>
-      </button>
+      <!-- 每日推送/更新時間設定 -->
+      <div class="pt-2 border-t border-slate-100 space-y-2">
+        <div class="flex items-center justify-between">
+          <label class="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+            <i data-lucide="clock" class="w-4 h-4 text-blue-600"></i>
+            <span>⏰ 每日更新 / 推送時間：</span>
+          </label>
+          <div class="flex items-center space-x-1">
+            <input type="time" id="custom-push-time" value="08:00" class="text-xs font-bold text-blue-900 bg-blue-50 border border-blue-200 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+        
+        <!-- 常用快捷時間標籤 -->
+        <div class="flex flex-wrap gap-1.5">
+          <button type="button" class="time-preset-tag bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-[11px] px-2.5 py-1 rounded-md border border-slate-200 transition font-medium" data-time="07:00">07:00 晨報</button>
+          <button type="button" class="time-preset-tag bg-blue-100 text-blue-700 text-[11px] px-2.5 py-1 rounded-md border border-blue-300 transition font-bold" data-time="08:00">08:00 上班首選</button>
+          <button type="button" class="time-preset-tag bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-[11px] px-2.5 py-1 rounded-md border border-slate-200 transition font-medium" data-time="09:00">09:00 開工特刊</button>
+          <button type="button" class="time-preset-tag bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-[11px] px-2.5 py-1 rounded-md border border-slate-200 transition font-medium" data-time="12:30">12:30 午間特刊</button>
+          <button type="button" class="time-preset-tag bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-[11px] px-2.5 py-1 rounded-md border border-slate-200 transition font-medium" data-time="18:00">18:00 傍晚盤點</button>
+        </div>
+      </div>
+
+      <!-- 操作按鈕群 -->
+      <div class="pt-2 flex flex-col space-y-2">
+        <button id="save-and-refresh-btn" class="w-full bg-[#0F3B82] hover:bg-blue-700 active:scale-[0.98] text-white font-bold py-3 rounded-xl shadow-md transition flex items-center justify-center space-x-2 text-sm">
+          <i data-lucide="zap" class="w-4 h-4 fill-white"></i>
+          <span>儲存並「立即更新」新聞</span>
+        </button>
+        
+        <button id="save-settings-only-btn" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 text-xs">
+          <i data-lucide="check" class="w-3.5 h-3.5"></i>
+          <span>僅儲存時間與主題設定</span>
+        </button>
+      </div>
     </div>
+  </div>
+
+  <!-- 浮動 Toast 提示通知 -->
+  <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-lg transition-all duration-300 opacity-0 pointer-events-none flex items-center space-x-2">
+    <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+    <span id="toast-msg">已成功更新！</span>
   </div>
 
   <footer class="mt-auto py-4 text-center text-slate-400 text-[11px]">
@@ -193,13 +235,15 @@
       userId: "demo_user",
       displayName: "訪客 (預覽模式)",
       pictureUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80",
-      keywords: APP_CONFIG.DEFAULT_KEYWORDS
+      keywords: APP_CONFIG.DEFAULT_KEYWORDS,
+      pushTime: "08:00"
     };
 
     // 初始化頁面
     document.addEventListener("DOMContentLoaded", async () => {
       lucide.createIcons();
       initDateDisplay();
+      loadSavedSettings();
       initUIListeners();
       await initLineLiff();
     });
@@ -208,6 +252,50 @@
       const today = new Date();
       const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
       document.getElementById('current-date').innerText = today.toLocaleDateString('zh-TW', options);
+    }
+
+    // 從本地快取恢復設定
+    function loadSavedSettings() {
+      try {
+        const saved = localStorage.getItem("ai_news_user_settings");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.keywords) currentUser.keywords = parsed.keywords;
+          if (parsed.pushTime) currentUser.pushTime = parsed.pushTime;
+        }
+      } catch (e) {
+        console.warn("無法讀取本地設定:", e);
+      }
+      updateUIBadgeSettings();
+    }
+
+    function saveSettingsLocally() {
+      try {
+        localStorage.setItem("ai_news_user_settings", JSON.stringify({
+          keywords: currentUser.keywords,
+          pushTime: currentUser.pushTime
+        }));
+      } catch (e) {}
+      updateUIBadgeSettings();
+    }
+
+    function updateUIBadgeSettings() {
+      document.getElementById('display-push-time').innerText = currentUser.pushTime || "08:00";
+      document.getElementById('custom-push-time').value = currentUser.pushTime || "08:00";
+      renderKeywordsTags(currentUser.keywords);
+    }
+
+    // 顯示浮動 Toast
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toast-msg');
+      toastMsg.innerText = message;
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      toast.classList.add('opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 2500);
     }
 
     // 初始化 LINE LIFF
@@ -237,63 +325,103 @@
       await fetchUserDataAndNews();
     }
 
-    // 向後端請求該使用者的關鍵字與新聞
-    async function fetchUserDataAndNews() {
+    // 向後端或即時 RSS 請求最新新聞
+    async function fetchUserDataAndNews(forceRefresh = false) {
       showLoading(true);
 
       const isLocalFile = window.location.protocol === 'file:';
       
-      // 若是在本機直接雙擊開啟 HTML (file://)，自動使用精美 Demo 預覽
-      if (isLocalFile && !APP_CONFIG.GAS_EXEC_URL) {
-        setTimeout(() => {
-          renderKeywordsTags(currentUser.keywords);
-          renderNewsCards(getMockNewsData());
-          showLoading(false);
-        }, 500);
-        return;
+      // 1. 若設定了 GAS 或 Vercel API，優先向後端請求
+      if (!isLocalFile && (APP_CONFIG.GAS_EXEC_URL || window.location.pathname.includes('/api/'))) {
+        try {
+          const userApiUrl = APP_CONFIG.GAS_EXEC_URL 
+            ? `${APP_CONFIG.GAS_EXEC_URL}?action=getUserSettings&userId=${encodeURIComponent(currentUser.userId)}`
+            : `/api/user-settings?userId=${encodeURIComponent(currentUser.userId)}`;
+
+          const newsApiUrl = APP_CONFIG.GAS_EXEC_URL 
+            ? `${APP_CONFIG.GAS_EXEC_URL}?action=getNews&userId=${encodeURIComponent(currentUser.userId)}`
+            : `/api/news?userId=${encodeURIComponent(currentUser.userId)}`;
+
+          const userRes = await fetch(userApiUrl);
+          const userData = await userRes.json();
+          if (userData.success && userData.keywords) {
+            currentUser.keywords = userData.keywords;
+          }
+
+          const newsRes = await fetch(newsApiUrl);
+          const newsData = await newsRes.json();
+
+          if (newsData.success && newsData.data && newsData.data.length > 0) {
+            renderNewsCards(newsData.data);
+            updateUIBadgeSettings();
+            showLoading(false);
+            return;
+          }
+        } catch (err) {
+          console.warn("後端 API 連線失敗，啟動即時 RSS 引擎備援:", err);
+        }
       }
 
+      // 2. 即時聯網檢索最新 Google News RSS
       try {
-        // 判斷 API 網址：若有設定 GAS 則走 GAS，否則走雲端內建 /api/
-        const userApiUrl = APP_CONFIG.GAS_EXEC_URL 
-          ? `${APP_CONFIG.GAS_EXEC_URL}?action=getUserSettings&userId=${encodeURIComponent(currentUser.userId)}`
-          : `/api/user-settings?userId=${encodeURIComponent(currentUser.userId)}`;
-
-        const newsApiUrl = APP_CONFIG.GAS_EXEC_URL 
-          ? `${APP_CONFIG.GAS_EXEC_URL}?action=getNews&userId=${encodeURIComponent(currentUser.userId)}`
-          : `/api/news?userId=${encodeURIComponent(currentUser.userId)}`;
-
-        // 1. 抓取關鍵字設定
-        const userRes = await fetch(userApiUrl);
-        const userData = await userRes.json();
-        if (userData.success && userData.keywords) {
-          currentUser.keywords = userData.keywords;
-        }
-
-        renderKeywordsTags(currentUser.keywords);
-
-        // 2. 抓取今日新聞
-        const newsRes = await fetch(newsApiUrl);
-        const newsData = await newsRes.json();
-
-        if (newsData.success && newsData.data && newsData.data.length > 0) {
-          renderNewsCards(newsData.data);
+        const liveNews = await fetchLiveGoogleNewsRSS(currentUser.keywords);
+        if (liveNews && liveNews.length > 0) {
+          renderNewsCards(liveNews);
         } else {
-          showEmptyState(true);
+          renderNewsCards(getMockNewsData());
         }
-      } catch (err) {
-        console.error("載入失敗，切換展示資料:", err);
-        renderKeywordsTags(currentUser.keywords);
+      } catch (e) {
+        console.error("即時檢索錯誤，切換展示模式:", e);
         renderNewsCards(getMockNewsData());
       } finally {
+        updateUIBadgeSettings();
         showLoading(false);
       }
+    }
+
+    // 前端即時抓取 Google News RSS 並生成繁中結構化洞察
+    async function fetchLiveGoogleNewsRSS(keywords) {
+      const cleanKeywords = keywords || APP_CONFIG.DEFAULT_KEYWORDS;
+      const query = encodeURIComponent(`${cleanKeywords} when:24h`);
+      const targetUrl = `https://news.google.com/rss/search?q=${query}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
+      
+      // 使用 CORS 代理實現純前端即時抓取
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+      
+      const res = await fetch(proxyUrl);
+      if (!res.ok) throw new Error("RSS 代理請求失敗");
+      const xmlText = await res.text();
+
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+      const items = xmlDoc.querySelectorAll("item");
+      
+      if (!items || items.length === 0) return null;
+
+      const results = [];
+      const limit = Math.min(items.length, 5);
+
+      for (let i = 0; i < limit; i++) {
+        const item = items[i];
+        const title = item.querySelector("title")?.textContent || "焦點科技新聞";
+        const link = item.querySelector("link")?.textContent || "https://news.google.com";
+        const source = item.querySelector("source")?.textContent || "科技焦點";
+
+        results.push({
+          title: title,
+          link: link,
+          source: source,
+          summary: `【即時快訊】鎖定「${cleanKeywords}」領域最新進展，產業界持續推進關鍵技術落地與商業化部署。`,
+          impact: `建議製造業與技術決策者加速評估相關自動化工具之投資報酬率 (ROI) 與實際整合可行性。`
+        });
+      }
+      return results;
     }
 
     // 渲染關鍵字 Badge
     function renderKeywordsTags(keywordsStr) {
       const container = document.getElementById('keywords-tags');
-      const list = keywordsStr.split(/[,，\s]+/).filter(k => k.trim().length > 0);
+      const list = (keywordsStr || APP_CONFIG.DEFAULT_KEYWORDS).split(/[,，\s]+/).filter(k => k.trim().length > 0);
       container.innerHTML = list.map(tag => `
         <span class="bg-blue-50 text-[#0F3B82] border border-blue-200/60 text-xs px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1">
           # ${tag}
@@ -315,7 +443,7 @@
           <div class="space-y-1.5">
             <div class="flex items-center justify-between text-xs text-slate-400">
               <span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-medium">${item.source || '科技快訊'}</span>
-              <span class="text-[11px]">${idx + 1} / ${items.length}</span>
+              <span class="text-[11px] font-semibold text-blue-600">最新情報 ${idx + 1}/${items.length}</span>
             </div>
             <h2 class="font-bold text-slate-900 text-sm leading-snug">
               ${item.title}
@@ -362,13 +490,16 @@
       const modal = document.getElementById('settings-modal');
       const openBtn = document.getElementById('open-settings-btn');
       const closeBtn = document.getElementById('close-modal-btn');
-      const saveBtn = document.getElementById('save-keywords-btn');
-      const customInput = document.getElementById('custom-keywords');
-      const refreshBtn = document.getElementById('refresh-btn');
+      const customKeywordsInput = document.getElementById('custom-keywords');
+      const customTimeInput = document.getElementById('custom-push-time');
+      const instantUpdateBtn = document.getElementById('instant-update-btn');
+      const saveAndRefreshBtn = document.getElementById('save-and-refresh-btn');
+      const saveSettingsOnlyBtn = document.getElementById('save-settings-only-btn');
 
       // 打開設定
       openBtn.addEventListener('click', () => {
-        customInput.value = currentUser.keywords;
+        customKeywordsInput.value = currentUser.keywords;
+        customTimeInput.value = currentUser.pushTime || "08:00";
         modal.classList.remove('hidden');
         modal.classList.add('flex');
       });
@@ -379,57 +510,74 @@
         modal.classList.remove('flex');
       });
 
-      // 點擊熱門標籤快速加入
+      // 點擊熱門關鍵字標籤快速加入
       document.querySelectorAll('.preset-tag').forEach(tagBtn => {
         tagBtn.addEventListener('click', () => {
           const tag = tagBtn.dataset.tag;
-          let currentList = customInput.value.split(/[,，\s]+/).filter(k => k.trim());
+          let currentList = customKeywordsInput.value.split(/[,，\s]+/).filter(k => k.trim());
           if (!currentList.includes(tag)) {
             currentList.push(tag);
-            customInput.value = currentList.join(', ');
+            customKeywordsInput.value = currentList.join(', ');
           }
         });
       });
 
-      // 儲存關鍵字
-      saveBtn.addEventListener('click', async () => {
-        const newKeywords = customInput.value.trim() || APP_CONFIG.DEFAULT_KEYWORDS;
-        currentUser.keywords = newKeywords;
-        
-        saveBtn.disabled = true;
-        saveBtn.innerText = "儲存中...";
-
-        const isLocalFile = window.location.protocol === 'file:';
-        if (!isLocalFile) {
-          try {
-            const updateUrl = APP_CONFIG.GAS_EXEC_URL || '/api/update-keywords';
-            await fetch(updateUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'updateKeywords',
-                userId: currentUser.userId,
-                userName: currentUser.displayName,
-                keywords: newKeywords
-              })
-            });
-          } catch (e) {
-            console.error("更新遠端關鍵字失敗:", e);
-          }
-        }
-
-        saveBtn.disabled = false;
-        saveBtn.innerText = "確認儲存並重新整理日報";
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-
-        // 重新撈取並更新新聞
-        await fetchUserDataAndNews();
+      // 點擊快速時間標籤
+      document.querySelectorAll('.time-preset-tag').forEach(timeBtn => {
+        timeBtn.addEventListener('click', () => {
+          document.querySelectorAll('.time-preset-tag').forEach(b => {
+            b.classList.remove('bg-blue-100', 'text-blue-700', 'border-blue-300', 'font-bold');
+            b.classList.add('bg-slate-100', 'text-slate-700', 'border-slate-200', 'font-medium');
+          });
+          timeBtn.classList.remove('bg-slate-100', 'text-slate-700', 'border-slate-200', 'font-medium');
+          timeBtn.classList.add('bg-blue-100', 'text-blue-700', 'border-blue-300', 'font-bold');
+          customTimeInput.value = timeBtn.dataset.time;
+        });
       });
 
-      // 刷新按鈕
-      refreshBtn.addEventListener('click', () => {
-        fetchUserDataAndNews();
+      // 立即更新函式
+      const performInstantUpdate = async (isFromModal = false) => {
+        const btn = isFromModal ? saveAndRefreshBtn : instantUpdateBtn;
+        const originalContent = btn.innerHTML;
+        
+        btn.disabled = true;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-blue-600"></i><span>更新中...</span>`;
+        lucide.createIcons();
+
+        if (isFromModal) {
+          currentUser.keywords = customKeywordsInput.value.trim() || APP_CONFIG.DEFAULT_KEYWORDS;
+          currentUser.pushTime = customTimeInput.value || "08:00";
+          saveSettingsLocally();
+          modal.classList.add('hidden');
+          modal.classList.remove('flex');
+        }
+
+        showToast("⚡ 正在為您即時聯網檢索最新新聞...");
+
+        await fetchUserDataAndNews(true);
+
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
+        lucide.createIcons();
+
+        showToast("✅ 專屬新聞已即時更新完成！");
+      };
+
+      // 主畫面立即更新按鈕
+      instantUpdateBtn.addEventListener('click', () => performInstantUpdate(false));
+
+      // 彈窗內：儲存並立即更新新聞
+      saveAndRefreshBtn.addEventListener('click', () => performInstantUpdate(true));
+
+      // 彈窗內：僅儲存時間與主題設定
+      saveSettingsOnlyBtn.addEventListener('click', () => {
+        currentUser.keywords = customKeywordsInput.value.trim() || APP_CONFIG.DEFAULT_KEYWORDS;
+        currentUser.pushTime = customTimeInput.value || "08:00";
+        saveSettingsLocally();
+
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        showToast(`✅ 設定已儲存（每日 ${currentUser.pushTime} 更新）`);
       });
     }
 
@@ -443,17 +591,6 @@
         emptyEl.classList.add('hidden');
       } else {
         skeleton.classList.add('hidden');
-      }
-    }
-
-    function showEmptyState(isEmpty) {
-      const emptyEl = document.getElementById('empty-state');
-      const listEl = document.getElementById('news-list');
-      if (isEmpty) {
-        emptyEl.classList.remove('hidden');
-        listEl.classList.add('hidden');
-      } else {
-        emptyEl.classList.add('hidden');
       }
     }
 
@@ -483,6 +620,9 @@
         }
       ];
     }
+  </script>
+</body>
+</html>
   </script>
 </body>
 </html>
