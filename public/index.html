@@ -379,13 +379,20 @@
       }
     }
 
-    // 前端即時抓取 Google News RSS 並生成繁中結構化洞察
+    // 前端即時抓取 Google News RSS 並生成繁中結構化洞察 (含 24h 最新與防重複過濾)
     async function fetchLiveGoogleNewsRSS(keywords) {
       const cleanKeywords = (keywords || APP_CONFIG.DEFAULT_KEYWORDS).trim();
-      const encodedQuery = encodeURIComponent(cleanKeywords);
+      // 嚴格限定 24 小時內最新發布的新聞 (when:1d)
+      const encodedQuery = encodeURIComponent(`${cleanKeywords} when:1d`);
       const rssTarget = `https://news.google.com/rss/search?q=${encodedQuery}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
       
-      // 策略 1: 透過高可靠的 rss2json 服務 (CORS Friendly，直接回傳 JSON)
+      // 讀取本地已見過的新聞歷史庫以防重複
+      let seenTitles = [];
+      try {
+        seenTitles = JSON.parse(localStorage.getItem("ai_news_seen_history") || "[]");
+      } catch (e) {}
+
+      // 策略 1: 透過高可靠的 rss2json 服務 (CORS Friendly)
       const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssTarget)}`;
       
       try {
@@ -393,8 +400,9 @@
         if (res.ok) {
           const json = await res.json();
           if (json.status === 'ok' && json.items && json.items.length > 0) {
-            const results = json.items.slice(0, 5).map((item, idx) => {
-              // 拆分新聞標題與來源 (Google News 標題通常格式為 "新聞標題 - 來源媒體")
+            const freshItems = [];
+
+            for (const item of json.items) {
               let title = item.title || "最新情報";
               let source = item.author || "焦點快訊";
               if (title.includes(' - ')) {
@@ -403,18 +411,53 @@
                 title = parts.join(' - ').trim();
               }
 
+              // 排除重複新聞
+              if (seenTitles.includes(title)) {
+                continue;
+              }
+
+              freshItems.push({
+                title: title,
+                link: item.link || "https://news.google.com",
+                source: source,
+                pubDate: item.pubDate ? item.pubDate.split(' ')[0] : '今日最新',
+                summary: `【今日最新】針對「${cleanKeywords}」最新動向：${title}。相關單位正密切關注最新進展。`,
+                impact: `持續追蹤「${cleanKeywords}」領域之讀者，建議評估相關時程安排與後續市場反應。`
+              });
+
+              if (freshItems.length >= 5) break;
+            }
+
+            // 若全數過濾完後為空（代表今日新聞皆已看過），則保留最新 3 則供重複查閱
+            const finalResults = freshItems.length > 0 ? freshItems : json.items.slice(0, 3).map(item => {
+              let title = item.title || "最新情報";
+              let source = item.author || "焦點快訊";
+              if (title.includes(' - ')) {
+                const parts = title.split(' - ');
+                source = parts.pop().trim();
+                title = parts.join(' - ').trim();
+              }
               return {
                 title: title,
                 link: item.link || "https://news.google.com",
                 source: source,
                 pubDate: item.pubDate ? item.pubDate.split(' ')[0] : '今日最新',
-                summary: `【即時快訊】針對「${cleanKeywords}」最新動態：${title}。相關單位正密切關注最新進展與市場反應。`,
-                impact: `關注「${cleanKeywords}」領域之讀者，建議評估相關時程安排、資源配置與後續衍生效應。`
+                summary: `【今日最新】「${cleanKeywords}」最新報導：${title}。`,
+                impact: `建議持續關注相關技術演進與產業趨勢。`
               };
             });
-            // 存入本地快取
-            localStorage.setItem("ai_news_live_cache", JSON.stringify(results));
-            return results;
+
+            // 更新已讀歷史庫（最多保留 50 筆）
+            finalResults.forEach(r => {
+              if (!seenTitles.includes(r.title)) seenTitles.push(r.title);
+            });
+            if (seenTitles.length > 50) seenTitles = seenTitles.slice(-50);
+            try {
+              localStorage.setItem("ai_news_seen_history", JSON.stringify(seenTitles));
+              localStorage.setItem("ai_news_live_cache", JSON.stringify(finalResults));
+            } catch (e) {}
+
+            return finalResults;
           }
         }
       } catch (err) {

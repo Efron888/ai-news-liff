@@ -12,9 +12,43 @@ NOTION_API_KEY = os.environ.get("NOTION_API_KEY", "")
 NOTION_USERS_DB_ID = os.environ.get("NOTION_USERS_DB_ID", "0b76f3b0-55fd-4415-b2bb-ba8d3934dbd7")
 NOTION_NEWS_DB_ID = os.environ.get("NOTION_NEWS_DB_ID", "a5a1287b-c87e-4fcd-adee-ea5e3d3d2566")
 
-def fetch_google_news_rss(keywords: str, max_items: int = 3):
-    """免費抓取 Google News RSS"""
-    query = f"{keywords} when:24h"
+def get_existing_news(notion_token: str, db_id: str):
+    """查詢 Notion 資料庫中已存在的新聞，避免重複寫入"""
+    if not notion_token:
+        return set(), set()
+    
+    url = f"https://api.notion.com/v1/databases/{db_id}/query"
+    headers = {
+        "Authorization": f"Bearer {notion_token}",
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28"
+    }
+    existing_titles = set()
+    existing_urls = set()
+    
+    try:
+        req = urllib.request.Request(url, data=json.dumps({"page_size": 100}).encode("utf-8"), headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as res:
+            data = json.loads(res.read().decode("utf-8"))
+            for page in data.get("results", []):
+                props = page.get("properties", {})
+                # 標題
+                title_objs = props.get("新聞標題", {}).get("title", [])
+                if title_objs:
+                    existing_titles.add(title_objs[0].get("plain_text", "").strip())
+                # 連結
+                url_val = props.get("原文連結", {}).get("url")
+                if url_val:
+                    existing_urls.add(url_val.strip())
+    except Exception as e:
+        print(f"[-] 讀取現有新聞去重快取失敗: {e}")
+        
+    return existing_titles, existing_urls
+
+def fetch_google_news_rss(keywords: str, existing_titles: set, existing_urls: set, max_items: int = 3):
+    """免費抓取 Google News RSS，嚴格篩選過去 24 小時最新且不重複的新聞"""
+    # 限制必須是過去 24 小時 (when:1d) 的最新新聞
+    query = f"{keywords} when:1d"
     url = f"https://news.google.com/rss/search?q={urllib.parse.quote(query)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     
@@ -23,16 +57,25 @@ def fetch_google_news_rss(keywords: str, max_items: int = 3):
             xml_data = res.read()
         root = ET.fromstring(xml_data)
         items = []
-        for item in root.findall(".//item")[:max_items]:
-            title = item.findtext("title", default="無標題")
-            link = item.findtext("link", default="")
+        for item in root.findall(".//item"):
+            title = item.findtext("title", default="無標題").strip()
+            link = item.findtext("link", default="").strip()
             source_elem = item.find("source")
             source = source_elem.text if source_elem is not None else "產業快訊"
+
+            # 嚴格去重過濾：已存在於 Notion 者跳過
+            clean_title = title.split(" - ")[0].strip() if " - " in title else title
+            if clean_title in existing_titles or link in existing_urls:
+                continue
+
             items.append({
                 "title": title,
                 "link": link,
                 "source": source
             })
+
+            if len(items) >= max_items:
+                break
         return items
     except Exception as e:
         print(f"[-] RSS 抓取失敗: {e}")
@@ -143,17 +186,24 @@ def write_news_to_notion(news_item, user_page_id: str, notion_token: str, db_id:
         return False
 
 def main():
-    print("[*] 啟動每日 AI 新聞雲端排程 Worker...")
+    print("[*] 啟動每日 AI 新聞雲端排程 Worker (含 24h 最新篩選與防重複機制)...")
     today_str = datetime.now().strftime("%Y-%m-%d")
     
+    # 1. 查詢 Notion 中已存在的新聞，確保絕對不重複寫入
+    existing_titles, existing_urls = get_existing_news(NOTION_API_KEY, NOTION_NEWS_DB_ID)
+    print(f"[*] Notion 現有歷史庫已有 {len(existing_titles)} 則新聞，將自動排除重複。")
+
     # 預設追蹤關鍵字
     default_keywords = "具身機器人, 製造業 AI, 智慧工廠"
-    print(f"[*] 正在抓取「{default_keywords}」最新新聞...")
+    print(f"[*] 正在檢索過去 24 小時最新新聞：「{default_keywords}」...")
     
-    news_items = fetch_google_news_rss(default_keywords, max_items=3)
-    print(f"[+] 抓取完成，共取得 {len(news_items)} 則新聞。")
-    
-    print("[*] 正在透過 Gemini Flash 產生深度產業摘要...")
+    news_items = fetch_google_news_rss(default_keywords, existing_titles, existing_urls, max_items=3)
+    if not news_items:
+        print("[i] 過去 24 小時內無全新新聞，今日略過以防重複。")
+        return
+
+    print(f"[+] 成功篩選出 {len(news_items)} 則全新 24 小時內新聞。")
+    print("[*] 正在透過 Gemini 產生深度產業摘要...")
     ai_summaries = summarize_with_gemini(news_items, default_keywords, GEMINI_API_KEY)
     
     if NOTION_API_KEY:
