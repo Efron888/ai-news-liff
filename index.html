@@ -381,41 +381,91 @@
 
     // 前端即時抓取 Google News RSS 並生成繁中結構化洞察
     async function fetchLiveGoogleNewsRSS(keywords) {
-      const cleanKeywords = keywords || APP_CONFIG.DEFAULT_KEYWORDS;
-      const query = encodeURIComponent(`${cleanKeywords} when:24h`);
-      const targetUrl = `https://news.google.com/rss/search?q=${query}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
+      const cleanKeywords = (keywords || APP_CONFIG.DEFAULT_KEYWORDS).trim();
+      const encodedQuery = encodeURIComponent(cleanKeywords);
+      const rssTarget = `https://news.google.com/rss/search?q=${encodedQuery}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
       
-      // 使用 CORS 代理實現純前端即時抓取
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+      // 策略 1: 透過高可靠的 rss2json 服務 (CORS Friendly，直接回傳 JSON)
+      const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssTarget)}`;
       
-      const res = await fetch(proxyUrl);
-      if (!res.ok) throw new Error("RSS 代理請求失敗");
-      const xmlText = await res.text();
+      try {
+        const res = await fetch(apiUrl);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.status === 'ok' && json.items && json.items.length > 0) {
+            const results = json.items.slice(0, 5).map((item, idx) => {
+              // 拆分新聞標題與來源 (Google News 標題通常格式為 "新聞標題 - 來源媒體")
+              let title = item.title || "最新情報";
+              let source = item.author || "焦點快訊";
+              if (title.includes(' - ')) {
+                const parts = title.split(' - ');
+                source = parts.pop().trim();
+                title = parts.join(' - ').trim();
+              }
 
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-      const items = xmlDoc.querySelectorAll("item");
-      
-      if (!items || items.length === 0) return null;
-
-      const results = [];
-      const limit = Math.min(items.length, 5);
-
-      for (let i = 0; i < limit; i++) {
-        const item = items[i];
-        const title = item.querySelector("title")?.textContent || "焦點科技新聞";
-        const link = item.querySelector("link")?.textContent || "https://news.google.com";
-        const source = item.querySelector("source")?.textContent || "科技焦點";
-
-        results.push({
-          title: title,
-          link: link,
-          source: source,
-          summary: `【即時快訊】鎖定「${cleanKeywords}」領域最新進展，產業界持續推進關鍵技術落地與商業化部署。`,
-          impact: `建議製造業與技術決策者加速評估相關自動化工具之投資報酬率 (ROI) 與實際整合可行性。`
-        });
+              return {
+                title: title,
+                link: item.link || "https://news.google.com",
+                source: source,
+                pubDate: item.pubDate ? item.pubDate.split(' ')[0] : '今日最新',
+                summary: `【即時快訊】針對「${cleanKeywords}」最新動態：${title}。相關單位正密切關注最新進展與市場反應。`,
+                impact: `關注「${cleanKeywords}」領域之讀者，建議評估相關時程安排、資源配置與後續衍生效應。`
+              };
+            });
+            // 存入本地快取
+            localStorage.setItem("ai_news_live_cache", JSON.stringify(results));
+            return results;
+          }
+        }
+      } catch (err) {
+        console.warn("rss2json 抓取異常，嘗試備援代理:", err);
       }
-      return results;
+
+      // 策略 2: 備援 CORS 代理
+      try {
+        const backupProxy = `https://corsproxy.io/?url=${encodeURIComponent(rssTarget)}`;
+        const resBackup = await fetch(backupProxy);
+        if (resBackup.ok) {
+          const xmlText = await resBackup.text();
+          const parser = new DOMParser();
+          const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+          const items = xmlDoc.querySelectorAll("item");
+          if (items && items.length > 0) {
+            const results = [];
+            for (let i = 0; i < Math.min(items.length, 5); i++) {
+              const item = items[i];
+              let title = item.querySelector("title")?.textContent || "焦點情報";
+              let source = item.querySelector("source")?.textContent || "熱門快報";
+              if (title.includes(' - ')) {
+                const parts = title.split(' - ');
+                source = parts.pop().trim();
+                title = parts.join(' - ').trim();
+              }
+              const link = item.querySelector("link")?.textContent || "https://news.google.com";
+              results.push({
+                title: title,
+                link: link,
+                source: source,
+                pubDate: '今日即時',
+                summary: `【即時情報】針對「${cleanKeywords}」最新消息：${title}。`,
+                impact: `建議持續追蹤相關發展與最新消息。`
+              });
+            }
+            localStorage.setItem("ai_news_live_cache", JSON.stringify(results));
+            return results;
+          }
+        }
+      } catch (e) {
+        console.error("備援代理亦失敗:", e);
+      }
+
+      // 若都失敗但本地有之前快取的新聞，則優先顯示快取，絕不顯示機器人假資料
+      const cached = localStorage.getItem("ai_news_live_cache");
+      if (cached) {
+        return JSON.parse(cached);
+      }
+
+      return null;
     }
 
     // 渲染關鍵字 Badge
@@ -442,8 +492,11 @@
           <!-- 標題與來源 -->
           <div class="space-y-1.5">
             <div class="flex items-center justify-between text-xs text-slate-400">
-              <span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-medium">${item.source || '科技快訊'}</span>
-              <span class="text-[11px] font-semibold text-blue-600">最新情報 ${idx + 1}/${items.length}</span>
+              <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md font-semibold">${item.source || '焦點新聞'}</span>
+              <span class="text-[11px] font-medium text-slate-400 flex items-center gap-1">
+                <i data-lucide="calendar" class="w-3 h-3 text-slate-400"></i>
+                ${item.pubDate || '今日最新'}
+              </span>
             </div>
             <h2 class="font-bold text-slate-900 text-sm leading-snug">
               ${item.title}
@@ -454,7 +507,7 @@
           <div class="bg-blue-50/70 border-l-4 border-[#0F3B82] rounded-r-xl p-3 space-y-1">
             <p class="text-[11px] font-bold text-[#0F3B82] flex items-center gap-1">
               <i data-lucide="sparkles" class="w-3.5 h-3.5 text-blue-600"></i>
-              AI 核心洞察摘要
+              AI 焦點洞察摘要
             </p>
             <p class="text-xs text-slate-700 leading-relaxed font-normal">
               ${item.summary}
@@ -465,7 +518,7 @@
           <div class="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-start space-x-2">
             <span class="text-amber-500 font-bold text-xs mt-0.5">💡</span>
             <div>
-              <span class="text-[11px] font-bold text-slate-700 block">製造業 / 企業落地視角：</span>
+              <span class="text-[11px] font-bold text-slate-700 block">專業評估視角：</span>
               <p class="text-[11px] text-slate-600 leading-tight mt-0.5">${item.impact}</p>
             </div>
           </div>
