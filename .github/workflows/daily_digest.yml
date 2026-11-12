@@ -1,0 +1,32 @@
+name: Daily AI News Digest to Notion
+
+on:
+  schedule:
+    # 每天台灣時間早上 07:00 (UTC 23:00) 自動定時執行
+    - cron: '0 23 * * *'
+  workflow_dispatch: # 支援在 GitHub 網頁上手動一鍵點擊觸發
+
+jobs:
+  run-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 檢出專案程式碼
+        uses: actions/checkout@v4
+
+      - name: 設定 Python 環境
+        uses: setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安裝相依套件
+        run: |
+          pip install requests
+
+      - name: 執行每日 AI 新聞抓取與 Notion 雲端同步
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_USERS_DB_ID: "0b76f3b0-55fd-4415-b2bb-ba8d3934dbd7"
+          NOTION_NEWS_DB_ID: "a5a1287b-c87e-4fcd-adee-ea5e3d3d2566"
+        run: |
+          python scripts/cloud_daily_worker.py
